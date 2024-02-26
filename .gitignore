@@ -1,5 +1,6 @@
-/target
-/dist
 /.settings
 /.classpath
 /.project
+/.m2
+/maven/target
+/maven/dist

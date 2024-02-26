@@ -81,7 +81,18 @@ public class DatabaseUserRepository {
 		return connection.queryList(sql, null, reader);
 	}
 	
+	public List<DatabaseUser> listUsers(Integer firstResult, Integer maxResults) {
+		String sql = "select * from " + usersTable + " limit ? offset ?";
+		return connection.queryList(sql, (PreparedStatement statement) -> {
+			statement.setInt(1, firstResult);
+			statement.setInt(2, maxResults);
+		}, reader);
+	}
+	
 	public List<DatabaseUser> searchUsers(String search, Integer firstResult, Integer maxResults) {
+		if (search.equals("*")) {
+			return listUsers(firstResult, maxResults);
+		}
 		String sql = "select * from " + usersTable + " where " + usernameColumn + " like ? or " + usernameColumn + " like ? or " + firstNameColumn + " like ? or " + lastNameColumn + " like ? limit ? offset ?";
 		String value = "%" + search + "%";
 		return connection.queryList(sql, (PreparedStatement statement) -> {
@@ -89,7 +100,7 @@ public class DatabaseUserRepository {
 			statement.setString(2, value);
 			statement.setString(3, value);
 			statement.setString(4, value);
-			statement.setInt(1, firstResult);
+			statement.setInt(5, firstResult);
 			statement.setInt(6, maxResults);
 		}, reader);
 	}
@@ -121,11 +132,11 @@ public class DatabaseUserRepository {
 		}, reader);
 	}
 	
-	public boolean updateCredential(String username, String password) {
-		String sql = "update " + usersTable + " set " + passwordColumn + " = ? where " + usernameColumn + " = ?";
+	public boolean updatePassword(Integer id, String password) {
+		String sql = "update " + usersTable + " set " + passwordColumn + " = ? where " + idColumn + " = ?";
         return connection.execute(sql, (PreparedStatement statement) -> {
         	statement.setString(1, password);
-			statement.setString(2, username);
+			statement.setInt(2, id);
         }) > 0;
 	}
 	

@@ -2,10 +2,7 @@ package org.kewt.databaseprovider;
 
 import java.sql.ResultSet;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
@@ -20,6 +17,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.UserProvider;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
@@ -192,7 +190,7 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId, UserStorageProviderModel model) {
-		LOGGER.infov("sync()");
+		LOGGER.infov("sync:");
 		
 		AtomicInteger added = new AtomicInteger();
 		AtomicInteger removed = new AtomicInteger();
@@ -205,43 +203,27 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				
 				RealmModel realm = session.realms().getRealm(realmId);
 		        session.getContext().setRealm(realm);
-		          
-		        Map<Integer, DatabaseUser> databaseUsers = new HashMap<>();
-		  		for (DatabaseUser user : userRepository.listUsers()) {
-		  			databaseUsers.put(user.getId(), user);
-		  		}
-		  		LOGGER.infov("  databaseUsers: {0}", databaseUsers.size());
-		  		
-		  		Map<Integer, UserModel> keycloakUserById = new HashMap<>();
-		  		Map<String, UserModel> keycloakUserByUsername = new HashMap<>();
-		  		Map<String, UserModel> keycloakUserByEmail = new HashMap<>();
-		  		
-		  		Map<String, String> search = new HashMap<String, String>();
-		  		search.put(UserModel.SEARCH, "*");
-		  		UserStoragePrivateUtil.userLocalStorage(session).searchForUserStream(realm, search).forEach((UserModel user) -> {
-		  			LOGGER.infov("  processing: {0}", user.getUsername());
-		  			if (user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID) != null) {
-		  				keycloakUserById.put(Integer.valueOf(user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID)), user);
-		  			}
-		  			keycloakUserByUsername.put(user.getEmail(), user);
-		  			keycloakUserByEmail.put(user.getEmail(), user);
-		  		});
-		  		
-		  		LOGGER.infov("  keycloakUserById: {0}", keycloakUserById.size());
-		  		
-		  		Set<Integer> newUsers = databaseUsers.keySet();
-		  		newUsers.removeAll(keycloakUserById.keySet());
-		  		for (Integer id : newUsers) {
-		  			DatabaseUser databaseUser = databaseUsers.get(id);
-		  			UserModel local = UserStoragePrivateUtil.userLocalStorage(session).addUser(realm, databaseUser.getUsername());
+		        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
+		        
+		        for (DatabaseUser user : userRepository.listUsers()) {
+		        	LOGGER.infov("  processing {0}", user);
+		        	UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
+		        	if (local != null) {
+		        		if (user.outOfSync(local)) {
+		        			user.syncUserModel(local);
+		        			updated.incrementAndGet();
+		        		}
+		        	} else {
+		        		local = UserStoragePrivateUtil.userLocalStorage(session).addUser(realm, user.getUsername());
 				        local.setFederationLink(model.getId());
-				        local.setEmail(databaseUser.getEmail());
-				        local.setFirstName(databaseUser.getFirstName());
-				        local.setLastName(databaseUser.getLastName());
+				        local.setEmail(user.getEmail());
+				        local.setFirstName(user.getFirstName());
+				        local.setLastName(user.getLastName());
 				        local.setEnabled(true);
-				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, databaseUser.getId().toString());
+				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
 				        added.incrementAndGet();
-		  		}
+		        	}
+		        }
 			}
 		});
 		

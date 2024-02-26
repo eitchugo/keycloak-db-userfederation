@@ -68,7 +68,7 @@ public class DatabaseUser {
 	
 	@Override
 	public String toString() {
-		return "DatabaseUser[username="+ username + "]";
+		return "DatabaseUser[username="+ username + ",email=" + email + ",firstName=" + firstName + ",lastName=" + lastName + "]";
 	}
 	
 	public boolean outOfSync(UserModel user) {
@@ -79,11 +79,11 @@ public class DatabaseUser {
 			!(Objects.equals(lastName, user.getLastName()));
 	}
 	
-	public void syncAttributes(UserModel user) {
-		this.username = user.getUsername();
-		this.email = user.getEmail();
-		this.firstName = user.getFirstName();
-		this.lastName = user.getLastName();
+	public void syncUserModel(UserModel user) {
+		user.setUsername(this.username);
+		user.setEmail(this.email);
+		user.setFirstName(this.firstName);
+		user.setLastName(this.lastName);
 	}
 
 }

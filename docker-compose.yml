@@ -1,0 +1,10 @@
+version: '3.1'
+
+services:
+  maven:
+    build:
+      context: ./docker
+    image: maven
+    volumes:
+      - ./maven/:/opt/keycloak-db-userfederation:rw
+      - ./.m2/:/root/.m2:rw
