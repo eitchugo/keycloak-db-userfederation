@@ -170,7 +170,7 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		LOGGER.infov("Validating database configuration");
 		
 		try (DatabaseConnection database = createConnection(model, true)) {
-			Integer value = database.querySingle("select 1 from dual", null, (ResultSet rs) -> {
+			Integer value = database.querySingle("SELECT 1", null, (ResultSet rs) -> {
 				return 1;
 			});
 			if (value == 1) {
