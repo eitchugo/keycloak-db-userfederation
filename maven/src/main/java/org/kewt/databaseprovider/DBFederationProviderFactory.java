@@ -170,7 +170,12 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		LOGGER.infov("Validating database configuration");
 		
 		try (DatabaseConnection database = createConnection(model, true)) {
-			LOGGER.infov("Database configuration successful");
+			Integer value = database.querySingle("select 1 from dual", null, (ResultSet rs) -> {
+				return 1;
+			});
+			if (value == 1) {
+				LOGGER.infov("Database configuration successful");
+			}
 		} catch (DatabaseException e) {
 			throw new ComponentValidationException("Unable to connect to database", e);
 		}
