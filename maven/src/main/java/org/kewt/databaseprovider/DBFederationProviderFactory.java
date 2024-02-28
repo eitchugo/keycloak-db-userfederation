@@ -39,12 +39,6 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		CONFIGURATION = ProviderConfigurationBuilder.create()
 			// Connection Settings
 			.property()
-				.name("connection_settings")
-				.label("")
-				.type(ProviderConfigProperty.STRING_TYPE)
-				.defaultValue("# CONNECTION SETTINGS")
-				.add()
-			.property()
 				.name(DBFederationConstants.CONFIG_JDBC_URL)
 				.label("user-federation-provider.db.jdbcUrl")
 				.helpText("user-federation-provider.db.jdbcUrlHelp")
@@ -65,12 +59,6 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				.secret(true)
 				.add()
 			// Database Settings
-			.property()
-				.name("database_settings")
-				.label("")
-				.type(ProviderConfigProperty.STRING_TYPE)
-				.defaultValue("# DATABASE SETTINGS")
-				.add()
 			.property()
 				.name(DBFederationConstants.CONFIG_USERS_TABLE)
 				.label("user-federation-provider.db.usersTable")
@@ -124,12 +112,6 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				.helpText("user-federation-provider.db.PasswordSaltHelp")
 				.type(ProviderConfigProperty.PASSWORD)
 				.secret(true)
-				.add()
-			.property()
-				.name("sync_settings")
-				.label("")
-				.type(ProviderConfigProperty.STRING_TYPE)
-				.defaultValue("### SYNC SETTINGS")
 				.add()
 			.build();
 	}
