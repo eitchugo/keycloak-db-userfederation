@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
+import org.kewt.databaseprovider.crypto.PasswordHashFunction;
 import org.kewt.databaseprovider.database.DatabaseConnection;
 import org.kewt.databaseprovider.database.DatabaseException;
 import org.kewt.databaseprovider.model.DatabaseUser;
@@ -107,11 +108,33 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				.defaultValue("password")
 				.add()
 			.property()
-				.name(DBFederationConstants.CONFIG_SALT)
-				.label("user-federation-provider.db.PasswordSalt")
-				.helpText("user-federation-provider.db.PasswordSaltHelp")
-				.type(ProviderConfigProperty.PASSWORD)
-				.secret(true)
+				.name(DBFederationConstants.CONFIG_PASSWORD_HASH_FUNCTION)
+				.label("user-federation-provider.db.passwordHashFunction")
+				.helpText("user-federation-provider.db.passwordHashFunctionHelp")
+				.type(ProviderConfigProperty.LIST_TYPE)
+				.defaultValue(PasswordHashFunction.BCRYPT.getId())
+				.options(PasswordHashFunction.ids().toArray(String[]::new))
+				.add()
+			.property()
+				.name(DBFederationConstants.CONFIG_BCRYPT_STRENGTH)
+				.label("user-federation-provider.db.bcryptStrength")
+				.helpText("user-federation-provider.db.bcryptStrengthHelp")
+				.type(ProviderConfigProperty.STRING_TYPE)
+				.defaultValue(10)
+				.add()
+			.property()
+				.name(DBFederationConstants.CONFIG_PBKDF2_SALT_LENGTH)
+				.label("user-federation-provider.db.pbkdf2SaltLength")
+				.helpText("user-federation-provider.db.pbkdf2SaltLengthHelp")
+				.type(ProviderConfigProperty.STRING_TYPE)
+				.defaultValue(16)
+				.add()
+			.property()
+				.name(DBFederationConstants.CONFIG_PBKDF2_ITERATIONS)
+				.label("user-federation-provider.db.pbkdf2Iterations")
+				.helpText("user-federation-provider.db.pbkdf2IterationsHelp")
+				.type(ProviderConfigProperty.STRING_TYPE)
+				.defaultValue(300000)
 				.add()
 			.build();
 	}

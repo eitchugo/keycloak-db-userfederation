@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import org.jboss.logging.Logger;
+import org.kewt.databaseprovider.crypto.PasswordHashFunction;
 import org.kewt.databaseprovider.database.DatabaseConnection;
 import org.kewt.databaseprovider.model.DatabaseUser;
 import org.kewt.databaseprovider.model.DatabaseUserDelegate;
 import org.kewt.databaseprovider.repository.DatabaseUserRepository;
-import org.kewt.databaseprovider.utils.PasswordUtils;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
@@ -175,6 +175,9 @@ public class DBFederationProvider
 		Integer databaseId = getDatabaseId(user);
 		if (databaseId != null) {
 			DatabaseUser databaseUser = userRepository.getUserById(databaseId);
+			if (databaseUser == null) {
+				return null;
+			}
 			if (databaseUser.outOfSync(user)) {
 				LOGGER.infov("syncing local model: {0}", user.getUsername());
 				databaseUser.syncUserModel(user);
@@ -224,9 +227,8 @@ public class DBFederationProvider
 		}
 		
 		UserCredentialModel credential = (UserCredentialModel) input;
-		String salt = model.get(DBFederationConstants.CONFIG_SALT);
-		String hashedPassword = PasswordUtils.sha512(salt + credential.getValue());
-		return databaseUser.getPasswordHash().equals(hashedPassword);
+		PasswordHashFunction hash = PasswordHashFunction.getById(model.get(DBFederationConstants.CONFIG_PASSWORD_HASH_FUNCTION));
+		return hash.verify(credential.getValue(), databaseUser.getPasswordHash(), model);
 	}
 	
 	// CredentialInputUpdater Methods
@@ -245,8 +247,9 @@ public class DBFederationProvider
 			return false;
 		}
         UserCredentialModel credential = (UserCredentialModel) input;
-        String salt = model.get(DBFederationConstants.CONFIG_SALT);
-        String hashedPassword = PasswordUtils.sha512(salt + credential.getValue());
+        // String salt = model.get(DBFederationConstants.CONFIG_SALT);
+        PasswordHashFunction hash = PasswordHashFunction.getById(model.get(DBFederationConstants.CONFIG_PASSWORD_HASH_FUNCTION));
+		String hashedPassword = hash.digest(credential.getValue(), model);
         DatabaseUser databaseUser = userRepository.getUserById(databaseId);
         if (databaseUser == null) {
         	return false;

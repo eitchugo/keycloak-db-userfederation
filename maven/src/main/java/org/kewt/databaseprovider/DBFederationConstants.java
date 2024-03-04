@@ -24,8 +24,14 @@ public class DBFederationConstants {
 	
 	public static final String CONFIG_PASSWORD_COLUMN = "password_column";
 	
-	public static final String ATTRIBUTE_DATABASE_ID = "DATABASE_ID";
+	public static final String CONFIG_PASSWORD_HASH_FUNCTION = "password_hash_function";
 	
-//	public static final String ATTRIBUTE_PASSWORD_HASH = "PASSWORD_HASH";
+	public static final String CONFIG_BCRYPT_STRENGTH = "bcrypt_strength";
+	
+	public static final String CONFIG_PBKDF2_SALT_LENGTH = "pbkdf2_salt_length";
+	
+	public static final String CONFIG_PBKDF2_ITERATIONS  = "pbkdf2_iterations";
+	
+	public static final String ATTRIBUTE_DATABASE_ID = "DATABASE_ID";
 
 }
