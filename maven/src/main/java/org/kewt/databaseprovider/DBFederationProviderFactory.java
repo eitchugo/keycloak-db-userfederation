@@ -250,7 +250,7 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		        			updated.incrementAndGet();
 		        		}
 		        	} else {
-		        		local = UserStoragePrivateUtil.userLocalStorage(session).addUser(realm, user.getUsername());
+		        		local = userProvider.addUser(realm, user.getUsername());
 				        local.setFederationLink(model.getId());
 				        local.setEmail(user.getEmail());
 				        local.setFirstName(user.getFirstName());
