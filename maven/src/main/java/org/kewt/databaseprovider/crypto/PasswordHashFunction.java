@@ -16,10 +16,10 @@ import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.Secret
 public enum PasswordHashFunction {
 	
 	PLAIN_TEXT("PLAIN_TEXT"),
-	MD5("MD5"),
-	SHA1("SHA1"),
-	SHA256("SHA256"),
-	SHA512("SHA512"),
+	MD5("DIGEST_MD5"),
+	SHA1("DIGEST_SHA1"),
+	SHA256("DIGEST_SHA256"),
+	SHA512("DIGEST_SHA512"),
 	PBKDF2_SHA1("PBKDF2_SHA1"),
 	PBKDF2_SHA256("PBKDF2_SHA256"),
 	PBKDF2_SHA512("PBKDF2_SHA512"),
@@ -46,6 +46,7 @@ public enum PasswordHashFunction {
 	}
 	
 	public PasswordEncoder getPasswordEncoder(ComponentModel model) {
+		String salt = model.get(DBFederationConstants.CONFIG_DIGEST_SALT);
 		Integer strength = Integer.valueOf(model.get(DBFederationConstants.CONFIG_BCRYPT_STRENGTH, 10));
 		Integer saltLength = Integer.valueOf(model.get(DBFederationConstants.CONFIG_PBKDF2_SALT_LENGTH, 16));
 		Integer iterations = Integer.valueOf(model.get(DBFederationConstants.CONFIG_PBKDF2_ITERATIONS, 300000));
@@ -61,13 +62,13 @@ public enum PasswordHashFunction {
 			case PLAIN_TEXT:
 				return new PlainTextPasswordEncoder();
 			case MD5:
-				return new DigestPasswordEncoder("MD5");
+				return new DigestPasswordEncoder("MD5", salt);
 			case SHA1:
-				return new DigestPasswordEncoder("SHA-1");
+				return new DigestPasswordEncoder("SHA-1", salt);
 			case SHA256:
-				return new DigestPasswordEncoder("SHA-256");
+				return new DigestPasswordEncoder("SHA-256", salt);
 			case SHA512:
-				return new DigestPasswordEncoder("SHA-512");
+				return new DigestPasswordEncoder("SHA-512", salt);
 			default:
 				throw new IllegalArgumentException();
 		}

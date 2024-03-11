@@ -29,6 +29,8 @@ public class DBFederationConstants {
 	
 	public static final String CONFIG_PASSWORD_HASH_FUNCTION = "password_hash_function";
 	
+	public static final String CONFIG_DIGEST_SALT = "digest_salt";
+	
 	public static final String CONFIG_BCRYPT_STRENGTH = "bcrypt_strength";
 	
 	public static final String CONFIG_PBKDF2_SALT_LENGTH = "pbkdf2_salt_length";

@@ -11,13 +11,18 @@ public class DigestPasswordEncoder implements PasswordEncoder {
 	
 	private MessageDigest digester;
 	
-	public DigestPasswordEncoder(String algorithm) {
+	private String fixedSalt;
+	
+	public DigestPasswordEncoder(String algorithm, String fixedSalt) {
 		this.digester = createDigester(algorithm);
+		this.fixedSalt = fixedSalt;
 	}
+	
+	// PasswordEncoder Methods
 
 	@Override
 	public String encode(CharSequence rawPassword) {
-		return digest("", rawPassword);
+		return digest(fixedSalt, rawPassword);
 	}
 
 	@Override
@@ -26,6 +31,8 @@ public class DigestPasswordEncoder implements PasswordEncoder {
 		String rawPasswordEncoded = digest(salt, rawPassword);
 		return passwordEquals(encodedPassword.toString(), rawPasswordEncoded);
 	}
+	
+	// Private Methods
 	
 	private static MessageDigest createDigester(String algorithm) {
 		try {
@@ -37,14 +44,14 @@ public class DigestPasswordEncoder implements PasswordEncoder {
 	}
 	
 	private String extractSalt(String encodedPassword) {
-		return "";
+		return fixedSalt;
 	}
 	
 	private String digest(String salt, CharSequence rawPassword) {
-		String saltedPassword = salt + rawPassword;
+		String saltedPassword = (salt != null ? salt : "") + rawPassword;
 		byte[] digest = this.digester.digest(Utf8.encode(saltedPassword));
 		String encoded = encode(digest);
-		return salt + encoded;
+		return encoded;
 	}
 	
 	private String encode(byte[] digest) {
