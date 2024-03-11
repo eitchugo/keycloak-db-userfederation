@@ -164,5 +164,12 @@ public class DatabaseUserRepository {
 			statement.setInt(5, user.getId());
 		}) > 0;
 	}
+	
+	public boolean delete(DatabaseUser user) {
+		String sql = "delete from " + usersTable + " where " + idColumn + " = ?";
+		return connection.execute(sql, (PreparedStatement statement) -> {
+			statement.setInt(1, user.getId());
+		}) > 0;
+	}
 
 }

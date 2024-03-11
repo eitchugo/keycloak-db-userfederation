@@ -1,5 +1,8 @@
 package org.kewt.databaseprovider;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class DBFederationConstants {
 	
 	public static final String CONFIG_JDBC_URL = "jdbc_url";
@@ -31,6 +34,16 @@ public class DBFederationConstants {
 	public static final String CONFIG_PBKDF2_SALT_LENGTH = "pbkdf2_salt_length";
 	
 	public static final String CONFIG_PBKDF2_ITERATIONS  = "pbkdf2_iterations";
+	
+	public static final String CONFIG_SYNC_MODE  = "sync_mode";
+	
+	public static final String SYNC_READONLY = "READ_ONLY";
+	
+	public static final String SYNC_READWRITE = "READ_WRITE";
+	
+	public static final String SYNC_READWRITEDELETE = "READ_WRITE_DELETE";
+	
+	public static final List<String> SYNC_OPTIONS = Arrays.asList(SYNC_READONLY, SYNC_READWRITE, SYNC_READWRITEDELETE);
 	
 	public static final String ATTRIBUTE_DATABASE_ID = "DATABASE_ID";
 

@@ -15,15 +15,15 @@ import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.Secret
 
 public enum PasswordHashFunction {
 	
-	PLAIN_TEXT("plaintext"),
-	MD5("md5"),
-	SHA1("sha1"),
-	SHA256("sha256"),
-	SHA512("sha512"),
-	PBKDF2_SHA1("pbkdf2_sha1"),
-	PBKDF2_SHA256("pbkdf2_sha256"),
-	PBKDF2_SHA512("pbkdf2_sha512"),
-	BCRYPT("bcrypt");
+	PLAIN_TEXT("PLAIN_TEXT"),
+	MD5("MD5"),
+	SHA1("SHA1"),
+	SHA256("SHA256"),
+	SHA512("SHA512"),
+	PBKDF2_SHA1("PBKDF2_SHA1"),
+	PBKDF2_SHA256("PBKDF2_SHA256"),
+	PBKDF2_SHA512("PBKDF2_SHA512"),
+	BCRYPT("BCRYPT");
 	
 	private static Map<String, PasswordHashFunction> BY_ID;
 	

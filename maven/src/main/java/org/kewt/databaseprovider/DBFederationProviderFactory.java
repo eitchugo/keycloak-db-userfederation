@@ -136,6 +136,14 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				.type(ProviderConfigProperty.STRING_TYPE)
 				.defaultValue(300000)
 				.add()
+			.property()
+				.name(DBFederationConstants.CONFIG_SYNC_MODE)
+				.label("user-federation-provider.db.syncMode")
+				.helpText("user-federation-provider.db.syncModeHelp")
+				.type(ProviderConfigProperty.LIST_TYPE)
+				.defaultValue(DBFederationConstants.SYNC_READONLY)
+				.options(DBFederationConstants.SYNC_OPTIONS)
+				.add()
 			.build();
 	}
 

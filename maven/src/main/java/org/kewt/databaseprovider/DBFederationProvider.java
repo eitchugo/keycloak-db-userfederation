@@ -10,7 +10,8 @@ import org.jboss.logging.Logger;
 import org.kewt.databaseprovider.crypto.PasswordHashFunction;
 import org.kewt.databaseprovider.database.DatabaseConnection;
 import org.kewt.databaseprovider.model.DatabaseUser;
-import org.kewt.databaseprovider.model.DatabaseUserDelegate;
+import org.kewt.databaseprovider.model.ReadOnlyUserDelegate;
+import org.kewt.databaseprovider.model.WritableUserDelegate;
 import org.kewt.databaseprovider.repository.DatabaseUserRepository;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.credential.CredentialInput;
@@ -53,7 +54,7 @@ public class DBFederationProvider
 	
 	protected DatabaseUserRepository userRepository;
 	
-	protected Collection<DatabaseUserDelegate> delegates;
+	protected Collection<WritableUserDelegate> delegates;
 	
 	public DBFederationProvider(KeycloakSession session, ComponentModel model, DatabaseConnection connection) {
         this.session = session;
@@ -68,12 +69,16 @@ public class DBFederationProvider
 	@Override
 	public void close() {
 		LOGGER.infov("close:");
-		for (DatabaseUserDelegate delegate : delegates) {
-			if (delegate.isDirty()) {
-				LOGGER.infov("  updating {0}", delegate.getUsername());
-				userRepository.update(delegate.getDatabaseUser());
-			}
-		}
+		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+ 		if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
+ 			DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+ 			for (WritableUserDelegate delegate : delegates) {
+ 				if (delegate.isDirty()) {
+ 					LOGGER.infov("  updating {0}", delegate.getUsername());
+ 					userRepository.update(delegate.getDatabaseUser());
+ 				}
+ 			}
+ 		}
 		delegates.clear();
 	}
 	
@@ -115,19 +120,36 @@ public class DBFederationProvider
  	@Override
  	public UserModel addUser(RealmModel realm, String username) {
  		LOGGER.infov("addUser: {0}", username);
- 		DatabaseUser databaseUser = new DatabaseUser();
- 		databaseUser.setUsername(username);
- 		databaseUser.setEmail("");
- 		databaseUser.setFirstName("");
- 		databaseUser.setLastName("");
- 		databaseUser.setPasswordHash("");
- 		userRepository.insert(databaseUser);
- 		return createAdapter(realm, databaseUser);
+ 		
+ 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+ 		if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
+ 			DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+ 			DatabaseUser databaseUser = new DatabaseUser();
+ 	 		databaseUser.setUsername(username);
+ 	 		databaseUser.setEmail("");
+ 	 		databaseUser.setFirstName("");
+ 	 		databaseUser.setLastName("");
+ 	 		databaseUser.setPasswordHash("");
+ 	 		userRepository.insert(databaseUser);
+ 	 		return createAdapter(realm, databaseUser);
+ 		} else {
+ 			return null;
+ 		}
  	}
 
  	@Override
  	public boolean removeUser(RealmModel realm, UserModel user) {
  		LOGGER.infov("removeUser: {0}", user);
+ 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+ 		if (DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+ 			Integer databaseId = getDatabaseId(user);
+ 			if (databaseId != null) {
+ 				DatabaseUser databaseUser = userRepository.getUserById(databaseId);
+ 				if (databaseUser != null) {
+ 					return userRepository.delete(databaseUser);
+ 				}
+ 			}
+ 		}
  		return true;
  	}
  	
@@ -173,6 +195,7 @@ public class DBFederationProvider
 	public UserModel validate(RealmModel realm, UserModel user) {
 		LOGGER.infov("validate: {0}", user.getUsername());
 		Integer databaseId = getDatabaseId(user);
+		
 		if (databaseId != null) {
 			DatabaseUser databaseUser = userRepository.getUserById(databaseId);
 			if (databaseUser == null) {
@@ -182,7 +205,14 @@ public class DBFederationProvider
 				LOGGER.infov("syncing local model: {0}", user.getUsername());
 				databaseUser.syncUserModel(user);
 			}
-			return createDelegate(user, databaseUser);
+			
+			String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+			if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
+				DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+				return createWritableDelegate(user, databaseUser);
+			} else {
+				return createReadOnlyDelegate(user, databaseUser);
+			}
 		}
 		return user;
 	}
@@ -292,13 +322,21 @@ public class DBFederationProvider
     		local.setLastName(databaseUser.getLastName());
     		local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, databaseUser.getId().toString());
     		local.setEnabled(true);
+    		local.setEmailVerified(true);
     	}
-    	return createDelegate(local, databaseUser);
+    	return createWritableDelegate(local, databaseUser);
     }
     
-    protected DatabaseUserDelegate createDelegate(UserModel local, DatabaseUser databaseUser) {
-    	DatabaseUserDelegate delegate = new DatabaseUserDelegate(local, databaseUser);
+    protected WritableUserDelegate createWritableDelegate(UserModel local, DatabaseUser databaseUser) {
+    	LOGGER.infov("createWritableDelegate: {0} {1}", local, databaseUser);
+    	WritableUserDelegate delegate = new WritableUserDelegate(local, databaseUser);
     	delegates.add(delegate);
+    	return delegate;
+    }
+    
+    protected ReadOnlyUserDelegate createReadOnlyDelegate(UserModel local, DatabaseUser databaseUser) {
+    	LOGGER.infov("createReadOnlyDelegate: {0} {1}", local, databaseUser);
+    	ReadOnlyUserDelegate delegate = new ReadOnlyUserDelegate(local);
     	return delegate;
     }
     
