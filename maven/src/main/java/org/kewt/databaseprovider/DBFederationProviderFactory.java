@@ -1,8 +1,13 @@
 package org.kewt.databaseprovider;
 
 import java.sql.ResultSet;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
@@ -209,6 +214,8 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId, UserStorageProviderModel model) {
 		LOGGER.infov("sync:");
 		
+		Instant start = Instant.now();
+		
 		AtomicInteger added = new AtomicInteger();
 		AtomicInteger removed = new AtomicInteger();
 		AtomicInteger updated = new AtomicInteger();
@@ -222,9 +229,21 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		        session.getContext().setRealm(realm);
 		        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
 		        
-		        for (DatabaseUser user : userRepository.listUsers()) {
-		        	LOGGER.infov("  processing {0}", user);
-		        	UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
+		        Map<Integer, UserModel> keycloakUsersById = new HashMap<>();
+		        {
+			  		Map<String, String> search = new HashMap<String, String>();
+			  		search.put(UserModel.SEARCH, "*");
+			  		userProvider.searchForUserStream(realm, search).forEach((UserModel user) -> {
+			  			if (user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID) != null) {
+			  				keycloakUsersById.put(Integer.valueOf(user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID)), user);
+			  			}
+			  		});
+		        }
+		        
+		        Collection<DatabaseUser> databaseUsers = userRepository.listUsers();
+		        for (DatabaseUser user : databaseUsers) {
+		        	LOGGER.debugv("  processing {0}", user.getUsername());
+		        	UserModel local = keycloakUsersById.get(user.getId());
 		        	if (local != null) {
 		        		if (user.outOfSync(local)) {
 		        			user.syncUserModel(local);
@@ -237,10 +256,13 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				        local.setFirstName(user.getFirstName());
 				        local.setLastName(user.getLastName());
 				        local.setEnabled(true);
+				        local.setEmailVerified(true);
 				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
 				        added.incrementAndGet();
 		        	}
 		        }
+		        
+		        connection.commit();
 			}
 		});
 		
@@ -249,6 +271,11 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		result.setRemoved(removed.get());
 		result.setUpdated(updated.get());
 		result.setFailed(failed.get());
+		
+		Instant end = Instant.now();
+		double timeEllapsed = Duration.between(start, end).toMillis() / 1000.0;
+		LOGGER.infov("  full sync took " + timeEllapsed + " seconds");
+		
 		return result;
 	}
 	

@@ -77,12 +77,12 @@ public class DatabaseUserRepository {
 	}
 	
 	public List<DatabaseUser> listUsers() {
-		String sql = "select * from " + usersTable;
+		String sql = "select " + getColumns() + " from " + usersTable;
 		return connection.queryList(sql, null, reader);
 	}
 	
 	public List<DatabaseUser> listUsers(Integer firstResult, Integer maxResults) {
-		String sql = "select * from " + usersTable + " limit ? offset ?";
+		String sql = "select " + getColumns() + " from " + usersTable + " limit ? offset ?";
 		return connection.queryList(sql, (PreparedStatement statement) -> {
 			statement.setInt(1, firstResult);
 			statement.setInt(2, maxResults);
@@ -93,7 +93,7 @@ public class DatabaseUserRepository {
 		if (search.equals("*")) {
 			return listUsers(firstResult, maxResults);
 		}
-		String sql = "select * from " + usersTable + " where " + usernameColumn + " like ? or " + usernameColumn + " like ? or " + firstNameColumn + " like ? or " + lastNameColumn + " like ? limit ? offset ?";
+		String sql = "select " + getColumns() + " from " + usersTable + " where " + usernameColumn + " like ? or " + usernameColumn + " like ? or " + firstNameColumn + " like ? or " + lastNameColumn + " like ? limit ? offset ?";
 		String value = "%" + search + "%";
 		return connection.queryList(sql, (PreparedStatement statement) -> {
 			statement.setString(1, value);
@@ -112,21 +112,21 @@ public class DatabaseUserRepository {
 	}
 	
 	public DatabaseUser getUserById(Integer id) {
-		String sql = "select * from " + usersTable + " where " + idColumn + " = ?";
+		String sql = "select " + getColumns() + " from " + usersTable + " where " + idColumn + " = ?";
 		return connection.querySingle(sql, (PreparedStatement statement) -> {
 			statement.setInt(1, id);
 		}, reader);
 	}
 	
 	public DatabaseUser getUserByUsername(String username) {
-		String sql = "select * from " + usersTable + " where " + usernameColumn + " = ?";
+		String sql = "select " + getColumns() + " from " + usersTable + " where " + usernameColumn + " = ?";
 		return connection.querySingle(sql, (PreparedStatement statement) -> {
 			statement.setString(1, username);
 		}, reader);
 	}
 	
 	public DatabaseUser getUserByEmail(String email) {
-		String sql = "select * from " + usersTable + " where " + emailColumn + " = ?";
+		String sql = "select " + getColumns() + " from " + usersTable + " where " + emailColumn + " = ?";
 		return connection.querySingle(sql, (PreparedStatement statement) -> {
 			statement.setString(1, email);
 		}, reader);
@@ -170,6 +170,13 @@ public class DatabaseUserRepository {
 		return connection.execute(sql, (PreparedStatement statement) -> {
 			statement.setInt(1, user.getId());
 		}) > 0;
+	}
+	
+	// Private Methods
+	
+	private String getColumns() {
+		String[] columns = new String[] { idColumn, usernameColumn, emailColumn, firstNameColumn, lastNameColumn, passwordColumn };
+		return String.join(",", columns);
 	}
 
 }
