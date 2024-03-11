@@ -20,6 +20,7 @@ public enum PasswordHashFunction {
 	SHA1("DIGEST_SHA1"),
 	SHA256("DIGEST_SHA256"),
 	SHA512("DIGEST_SHA512"),
+	DOUBLE_SHA512("DOUBLE_DIGEST_SHA512"),
 	PBKDF2_SHA1("PBKDF2_SHA1"),
 	PBKDF2_SHA256("PBKDF2_SHA256"),
 	PBKDF2_SHA512("PBKDF2_SHA512"),
@@ -69,6 +70,8 @@ public enum PasswordHashFunction {
 				return new DigestPasswordEncoder("SHA-256", salt);
 			case SHA512:
 				return new DigestPasswordEncoder("SHA-512", salt);
+			case DOUBLE_SHA512:
+				return new DigestPasswordEncoder("SHA-512", salt, true);
 			default:
 				throw new IllegalArgumentException();
 		}
