@@ -224,29 +224,34 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
         for (DatabaseUser user : databaseUsers) {
         	LOGGER.debugv("  processing {0}", user.getUsername());
         	
-        	KeycloakModelUtils.runJobInTransaction(sessionFactory, (KeycloakSession session) -> {
-        		RealmModel realm = session.realms().getRealm(realmId);
-		        session.getContext().setRealm(realm);
-		        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
-		        
-		        UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
-	        	if (local != null) {
-	        		if (user.outOfSync(local)) {
-	        			user.syncUserModel(local);
-	        			result.increaseUpdated();
-	        		}
-	        	} else {
-	        		local = userProvider.addUser(realm, user.getUsername());
-			        local.setFederationLink(model.getId());
-			        local.setEmail(user.getEmail());
-			        local.setFirstName(user.getFirstName());
-			        local.setLastName(user.getLastName());
-			        local.setEnabled(true);
-			        local.setEmailVerified(true);
-			        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
-			        result.increaseAdded();
-	        	}
-	    	});
+        	try {
+	        	KeycloakModelUtils.runJobInTransaction(sessionFactory, (KeycloakSession session) -> {
+	        		RealmModel realm = session.realms().getRealm(realmId);
+			        session.getContext().setRealm(realm);
+			        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
+			        
+			        UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
+		        	if (local != null) {
+		        		if (user.outOfSync(local)) {
+		        			user.syncUserModel(local);
+		        			result.increaseUpdated();
+		        		}
+		        	} else {
+		        		local = userProvider.addUser(realm, user.getUsername());
+				        local.setFederationLink(model.getId());
+				        local.setEmail(user.getEmail());
+				        local.setFirstName(user.getFirstName());
+				        local.setLastName(user.getLastName());
+				        local.setEnabled(true);
+				        local.setEmailVerified(true);
+				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
+				        result.increaseAdded();
+		        	}
+		    	});
+        	} catch (Exception e) {
+        		LOGGER.debug(new RuntimeException("Failed syncing user " + user.getUsername()));
+        		result.increaseFailed();
+        	}
         }
 		
 		Instant end = Instant.now();
