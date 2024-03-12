@@ -84,8 +84,8 @@ public class DatabaseUserRepository {
 	public List<DatabaseUser> listUsers(Integer firstResult, Integer maxResults) {
 		String sql = "select " + getColumns() + " from " + usersTable + " limit ? offset ?";
 		return connection.queryList(sql, (PreparedStatement statement) -> {
-			statement.setInt(1, firstResult);
-			statement.setInt(2, maxResults);
+			statement.setInt(1, maxResults);
+			statement.setInt(2, firstResult);
 		}, reader);
 	}
 	
@@ -100,8 +100,9 @@ public class DatabaseUserRepository {
 			statement.setString(2, value);
 			statement.setString(3, value);
 			statement.setString(4, value);
-			statement.setInt(5, firstResult);
-			statement.setInt(6, maxResults);
+			statement.setInt(5, maxResults);
+			statement.setInt(6, firstResult);
+			
 		}, reader);
 	}
 	

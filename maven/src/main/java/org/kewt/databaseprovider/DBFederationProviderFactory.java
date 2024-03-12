@@ -249,7 +249,7 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		        	}
 		    	});
         	} catch (Exception e) {
-        		LOGGER.debug(new RuntimeException("Failed syncing user " + user.getUsername()));
+        		LOGGER.debug(new RuntimeException("Failed syncing user " + user.getUsername(), e));
         		result.increaseFailed();
         	}
         }
