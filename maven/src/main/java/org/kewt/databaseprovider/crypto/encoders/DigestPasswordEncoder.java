@@ -8,12 +8,20 @@ import org.springframework.security.crypto.codec.Utf8;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 public class DigestPasswordEncoder implements PasswordEncoder {
-	
+
 	private MessageDigest digester;
 	
 	private String fixedSalt;
+
+	private boolean doubleHash = false;
 	
 	public DigestPasswordEncoder(String algorithm, String fixedSalt) {
+		this.digester = createDigester(algorithm);
+		this.fixedSalt = fixedSalt;
+	}
+
+	public DigestPasswordEncoder(String algorithm, String fixedSalt, boolean doubleHash) {
+		this.doubleHash = doubleHash;
 		this.digester = createDigester(algorithm);
 		this.fixedSalt = fixedSalt;
 	}
@@ -50,8 +58,14 @@ public class DigestPasswordEncoder implements PasswordEncoder {
 	private String digest(String salt, CharSequence rawPassword) {
 		String saltedPassword = (salt != null ? salt : "") + rawPassword;
 		byte[] digest = this.digester.digest(Utf8.encode(saltedPassword));
-		String encoded = encode(digest);
-		return encoded;
+		if (doubleHash) {
+			byte[] doubleDigest = this.digester.digest(Utf8.encode(encode(digest)));
+			String encoded = encode(doubleDigest);
+			return encoded;
+		} else {
+			String encoded = encode(digest);
+			return encoded;
+		}
 	}
 	
 	private String encode(byte[] digest) {

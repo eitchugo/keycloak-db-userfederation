@@ -80,6 +80,7 @@ public class DBFederationProvider
  			}
  		}
 		delegates.clear();
+		connection.close();
 	}
 	
 	// UserLookupProvider

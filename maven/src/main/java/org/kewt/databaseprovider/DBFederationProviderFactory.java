@@ -3,12 +3,10 @@ package org.kewt.databaseprovider;
 import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
 import org.kewt.databaseprovider.crypto.PasswordHashFunction;
@@ -35,7 +33,7 @@ import org.keycloak.storage.user.SynchronizationResult;
 
 public class DBFederationProviderFactory implements UserStorageProviderFactory<DBFederationProvider>, ImportSynchronization {
 	
-	protected static final Logger LOGGER = Logger.getLogger(DBFederationProvider.class);
+	protected static final Logger LOGGER = Logger.getLogger(DBFederationProviderFactory.class);
 	
 	protected static final String PROVIDER_ID = "db-federation";
 	
@@ -212,69 +210,48 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId, UserStorageProviderModel model) {
-		LOGGER.infov("sync:");
+		LOGGER.infov("Full Sync started");
 		
 		Instant start = Instant.now();
+		SynchronizationResult result = new SynchronizationResult();
 		
-		AtomicInteger added = new AtomicInteger();
-		AtomicInteger removed = new AtomicInteger();
-		AtomicInteger updated = new AtomicInteger();
-		AtomicInteger failed = new AtomicInteger();
-		
-		KeycloakModelUtils.runJobInTransaction(sessionFactory, (KeycloakSession session) -> {
-			try (DatabaseConnection connection = createConnection(model, false)) {
-				DatabaseUserRepository userRepository = new DatabaseUserRepository(connection, model);
-				
-				RealmModel realm = session.realms().getRealm(realmId);
+		Collection<DatabaseUser> databaseUsers = new ArrayList<>();
+		try (DatabaseConnection connection = createConnection(model, false)) {
+			DatabaseUserRepository userRepository = new DatabaseUserRepository(connection, model);
+			databaseUsers = userRepository.listUsers();
+		}
+			
+        for (DatabaseUser user : databaseUsers) {
+        	LOGGER.debugv("  processing {0}", user.getUsername());
+        	
+        	KeycloakModelUtils.runJobInTransaction(sessionFactory, (KeycloakSession session) -> {
+        		RealmModel realm = session.realms().getRealm(realmId);
 		        session.getContext().setRealm(realm);
 		        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
 		        
-		        Map<Integer, UserModel> keycloakUsersById = new HashMap<>();
-		        {
-			  		Map<String, String> search = new HashMap<String, String>();
-			  		search.put(UserModel.SEARCH, "*");
-			  		userProvider.searchForUserStream(realm, search).forEach((UserModel user) -> {
-			  			if (user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID) != null) {
-			  				keycloakUsersById.put(Integer.valueOf(user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID)), user);
-			  			}
-			  		});
-		        }
-		        
-		        Collection<DatabaseUser> databaseUsers = userRepository.listUsers();
-		        for (DatabaseUser user : databaseUsers) {
-		        	LOGGER.debugv("  processing {0}", user.getUsername());
-		        	UserModel local = keycloakUsersById.get(user.getId());
-		        	if (local != null) {
-		        		if (user.outOfSync(local)) {
-		        			user.syncUserModel(local);
-		        			updated.incrementAndGet();
-		        		}
-		        	} else {
-		        		local = userProvider.addUser(realm, user.getUsername());
-				        local.setFederationLink(model.getId());
-				        local.setEmail(user.getEmail());
-				        local.setFirstName(user.getFirstName());
-				        local.setLastName(user.getLastName());
-				        local.setEnabled(true);
-				        local.setEmailVerified(true);
-				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
-				        added.incrementAndGet();
-		        	}
-		        }
-		        
-		        connection.commit();
-			}
-		});
-		
-		SynchronizationResult result = new SynchronizationResult();
-		result.setAdded(added.get());
-		result.setRemoved(removed.get());
-		result.setUpdated(updated.get());
-		result.setFailed(failed.get());
+		        UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
+	        	if (local != null) {
+	        		if (user.outOfSync(local)) {
+	        			user.syncUserModel(local);
+	        			result.increaseUpdated();
+	        		}
+	        	} else {
+	        		local = userProvider.addUser(realm, user.getUsername());
+			        local.setFederationLink(model.getId());
+			        local.setEmail(user.getEmail());
+			        local.setFirstName(user.getFirstName());
+			        local.setLastName(user.getLastName());
+			        local.setEnabled(true);
+			        local.setEmailVerified(true);
+			        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
+			        result.increaseAdded();
+	        	}
+	    	});
+        }
 		
 		Instant end = Instant.now();
 		double timeEllapsed = Duration.between(start, end).toMillis() / 1000.0;
-		LOGGER.infov("  full sync took " + timeEllapsed + " seconds");
+		LOGGER.infov("Full Sync ended in " + timeEllapsed + " seconds");
 		
 		return result;
 	}
