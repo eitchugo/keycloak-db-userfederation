@@ -68,7 +68,6 @@ public class DBFederationProvider
 
 	@Override
 	public void close() {
-		LOGGER.infov("close:");
 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
  		if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
  			DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {

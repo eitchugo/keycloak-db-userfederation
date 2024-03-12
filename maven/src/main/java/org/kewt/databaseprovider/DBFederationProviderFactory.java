@@ -21,12 +21,16 @@ import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.models.KeycloakSessionTask;
+import org.keycloak.models.ModelException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserProvider;
+import org.keycloak.models.cache.UserCache;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
+import org.keycloak.storage.UserStorageUtil;
 import org.keycloak.storage.UserStoragePrivateUtil;
 import org.keycloak.storage.UserStorageProviderFactory;
 import org.keycloak.storage.UserStorageProviderModel;
@@ -36,9 +40,7 @@ import org.keycloak.storage.user.SynchronizationResult;
 public class DBFederationProviderFactory implements UserStorageProviderFactory<DBFederationProvider>, ImportSynchronization {
 	
 	protected static final Logger LOGGER = Logger.getLogger(DBFederationProvider.class);
-	
 	protected static final String PROVIDER_ID = "db-federation";
-	
 	protected static final List<ProviderConfigProperty> CONFIGURATION;
 	
 	static {
@@ -172,7 +174,6 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public DBFederationProvider create(KeycloakSession session, ComponentModel model) {
-		LOGGER.infov("Creating DBFederationProvider");
 		DatabaseConnection connection = createConnection(model, true);
 		return new DBFederationProvider(session, model, connection);
 	}
@@ -212,71 +213,138 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public SynchronizationResult sync(KeycloakSessionFactory sessionFactory, String realmId, UserStorageProviderModel model) {
-		LOGGER.infov("sync:");
-		
+		final SynchronizationResult syncResult = new SynchronizationResult();
+
+		class BooleanHolder {
+			private boolean value = true;
+	        }
+
+	        final BooleanHolder exists = new BooleanHolder();
+
+		LOGGER.infof("Sync all users from database to local store: realm: %s, federation provider: %s", realmId, model.getName());
+
 		Instant start = Instant.now();
 		
-		AtomicInteger added = new AtomicInteger();
-		AtomicInteger removed = new AtomicInteger();
-		AtomicInteger updated = new AtomicInteger();
-		AtomicInteger failed = new AtomicInteger();
-		
-		KeycloakModelUtils.runJobInTransaction(sessionFactory, (KeycloakSession session) -> {
-			try (DatabaseConnection connection = createConnection(model, false)) {
-				DatabaseUserRepository userRepository = new DatabaseUserRepository(connection, model);
-				
-				RealmModel realm = session.realms().getRealm(realmId);
-		        session.getContext().setRealm(realm);
+		try (DatabaseConnection connection = createConnection(model, false)) {
+			DatabaseUserRepository userRepository = new DatabaseUserRepository(connection, model);
+		        //Collection<DatabaseUser> databaseUsers_teste = userRepository.listUsers();
+
+		        KeycloakSession session = sessionFactory.create();
+			RealmModel currentRealm = session.realms().getRealm(realmId);
+			session.getContext().setRealm(currentRealm);
+
 		        UserProvider userProvider = UserStoragePrivateUtil.userLocalStorage(session);
-		        
+
 		        Map<Integer, UserModel> keycloakUsersById = new HashMap<>();
 		        {
-			  		Map<String, String> search = new HashMap<String, String>();
-			  		search.put(UserModel.SEARCH, "*");
-			  		userProvider.searchForUserStream(realm, search).forEach((UserModel user) -> {
-			  			if (user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID) != null) {
-			  				keycloakUsersById.put(Integer.valueOf(user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID)), user);
-			  			}
-			  		});
+				Map<String, String> search = new HashMap<String, String>();
+				search.put(UserModel.SEARCH, "*");
+				search.put(UserModel.INCLUDE_SERVICE_ACCOUNT, "false");
+				userProvider.searchForUserStream(currentRealm, search).forEach((UserModel user) -> {
+					LOGGER.infof("Do we need to clear cache?");
+					if (UserStorageUtil.userCache(session) != null) {
+						LOGGER.infof("Clearing cache for: %s", user.getUsername());
+				                UserStorageUtil.userCache(session).evict(currentRealm, user);
+			                }
+					LOGGER.infof("USER: %s", user.getUsername());
+					if (user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID) != null) {
+						keycloakUsersById.put(Integer.valueOf(user.getFirstAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID)), user);
+					}
+				});
 		        }
-		        
+
 		        Collection<DatabaseUser> databaseUsers = userRepository.listUsers();
-		        for (DatabaseUser user : databaseUsers) {
-		        	LOGGER.debugv("  processing {0}", user.getUsername());
-		        	UserModel local = keycloakUsersById.get(user.getId());
-		        	if (local != null) {
-		        		if (user.outOfSync(local)) {
-		        			user.syncUserModel(local);
-		        			updated.incrementAndGet();
-		        		}
-		        	} else {
-		        		local = userProvider.addUser(realm, user.getUsername());
-				        local.setFederationLink(model.getId());
-				        local.setEmail(user.getEmail());
-				        local.setFirstName(user.getFirstName());
-				        local.setLastName(user.getLastName());
-				        local.setEnabled(true);
-				        local.setEmailVerified(true);
-				        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
-				        added.incrementAndGet();
-		        	}
-		        }
-		        
-		        connection.commit();
+
+		        for (final DatabaseUser user : databaseUsers) {
+				try {
+					// Process each user in it's own transaction to avoid global fail
+					KeycloakModelUtils.runJobInTransaction(sessionFactory, new KeycloakSessionTask() {
+
+						@Override
+						public void run(KeycloakSession session) {
+							RealmModel currentRealm = session.realms().getRealm(realmId);
+							session.getContext().setRealm(currentRealm);
+
+							LOGGER.infof("Processing username: %s", user.getUsername());
+							UserModel local = keycloakUsersById.get(user.getId());
+
+							LOGGER.infof("Check if it exists");
+							// update user to keycloak
+							if (local != null) {
+								LOGGER.infof("User already exists in local: %s", user.getUsername());
+								if (UserStorageUtil.userCache(session) != null) {
+									LOGGER.infof("Clearing cache for: %s", user.getUsername());
+							                UserStorageUtil.userCache(session).evict(currentRealm, local);
+						                }
+
+								exists.value = true;
+								if (user.outOfSync(local)) {
+									user.syncUserModel(local);
+									connection.commit();
+									LOGGER.infof("Updated user from database: %s", user.getUsername());
+
+									syncResult.increaseAdded();
+								}
+							// add new user to keycloak
+							} else {
+								LOGGER.infof("Adding user from database: %s", user.getUsername());
+								local = userProvider.addUser(currentRealm, user.getUsername());
+							        local.setFederationLink(model.getId());
+							        local.setEmail(user.getEmail());
+							        local.setFirstName(user.getFirstName());
+							        local.setLastName(user.getLastName());
+							        local.setEnabled(true);
+							        local.setEmailVerified(true);
+							        local.setSingleAttribute(DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString());
+								LOGGER.infof("Commiting to database: %s", user.getUsername());
+								connection.commit();
+								exists.value = false;
+								LOGGER.infof("Added user from database: %s", user.getUsername());
+
+								syncResult.increaseAdded();
+							}
+						}
+					});
+
+				// TODO: Remove user if we already added him during this transaction
+				} catch (ModelException me) {
+					LOGGER.error("Failed during import user from database", me);
+					syncResult.increaseFailed();
+
+			                if (!exists.value) {
+						KeycloakModelUtils.runJobInTransaction(sessionFactory, new KeycloakSessionTask() {
+
+							@Override
+							public void run(KeycloakSession session) {
+
+								RealmModel currentRealm = session.realms().getRealm(realmId);
+								session.getContext().setRealm(currentRealm);
+
+								UserModel local = keycloakUsersById.get(user.getId());
+								String username = user.getUsername();
+
+								if (local != null) {
+									UserModel existing = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(currentRealm, username);
+									if (existing != null) {
+										UserCache userCache = UserStorageUtil.userCache(session);
+										if (userCache != null) {
+											userCache.evict(currentRealm, existing);
+										}
+										UserStoragePrivateUtil.userLocalStorage(session).removeUser(currentRealm, existing);
+									}
+								}
+							}
+						});
+					}
+				}
 			}
-		});
-		
-		SynchronizationResult result = new SynchronizationResult();
-		result.setAdded(added.get());
-		result.setRemoved(removed.get());
-		result.setUpdated(updated.get());
-		result.setFailed(failed.get());
-		
+		}
+
 		Instant end = Instant.now();
 		double timeEllapsed = Duration.between(start, end).toMillis() / 1000.0;
 		LOGGER.infov("  full sync took " + timeEllapsed + " seconds");
 		
-		return result;
+		return syncResult;
 	}
 	
 	@Override
