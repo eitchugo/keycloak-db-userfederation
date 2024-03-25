@@ -11,8 +11,6 @@ public class DBFederationConstants {
 	
 	public static final String CONFIG_JDBC_PASSWORD = "jdbc_password";
 	
-	public static final String CONFIG_SALT = "salt";
-	
 	public static final String CONFIG_USERS_TABLE = "users_table";
 	
 	public static final String CONFIG_ID_COLUMN = "id_column";
@@ -30,6 +28,8 @@ public class DBFederationConstants {
 	public static final String CONFIG_PASSWORD_HASH_FUNCTION = "password_hash_function";
 	
 	public static final String CONFIG_DIGEST_SALT = "digest_salt";
+	
+	public static final String CONFIG_DIGEST_ITERATIONS = "digest_iterations";
 	
 	public static final String CONFIG_BCRYPT_STRENGTH = "bcrypt_strength";
 	

@@ -68,13 +68,13 @@ public class DBFederationProvider
 
 	@Override
 	public void close() {
-		LOGGER.infov("close:");
+		LOGGER.debugv("close:");
 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
  		if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
  			DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
  			for (WritableUserDelegate delegate : delegates) {
  				if (delegate.isDirty()) {
- 					LOGGER.infov("  updating {0}", delegate.getUsername());
+ 					LOGGER.debugv("  updating {0}", delegate.getUsername());
  					userRepository.update(delegate.getDatabaseUser());
  				}
  			}
@@ -87,7 +87,7 @@ public class DBFederationProvider
 
 	@Override
 	public UserModel getUserById(RealmModel realm, String id) {
-		LOGGER.infov("getUserById: {0}", id);
+		LOGGER.debugv("getUserById: {0}", id);
 		Integer databaseId = Integer.valueOf(id);
 		DatabaseUser databaseUser = userRepository.getUserById(databaseId);
     	if (databaseUser != null) {
@@ -98,7 +98,7 @@ public class DBFederationProvider
 
 	@Override
 	public UserModel getUserByUsername(RealmModel realm, String username) {
-		LOGGER.infov("getUserByUsername: {0}", username);
+		LOGGER.debugv("getUserByUsername: {0}", username);
     	DatabaseUser databaseUser = userRepository.getUserByUsername(username);
     	if (databaseUser != null) {
     		return createAdapter(realm, databaseUser);
@@ -108,7 +108,7 @@ public class DBFederationProvider
 
 	@Override
 	public UserModel getUserByEmail(RealmModel realm, String email) {
-		LOGGER.infov("getUserByEmail: {0}", email);
+		LOGGER.debugv("getUserByEmail: {0}", email);
 		DatabaseUser databaseUser = userRepository.getUserByEmail(email);
     	if (databaseUser != null) {
     		return createAdapter(realm, databaseUser);
@@ -120,11 +120,9 @@ public class DBFederationProvider
 
  	@Override
  	public UserModel addUser(RealmModel realm, String username) {
- 		LOGGER.infov("addUser: {0}", username);
+ 		LOGGER.debugv("addUser: {0}", username);
  		
- 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
- 		if (DBFederationConstants.SYNC_READWRITE.equals(syncMode) ||
- 			DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+ 		if (isSyncWriteMode()) {
  			DatabaseUser databaseUser = new DatabaseUser();
  	 		databaseUser.setUsername(username);
  	 		databaseUser.setEmail("");
@@ -140,9 +138,8 @@ public class DBFederationProvider
 
  	@Override
  	public boolean removeUser(RealmModel realm, UserModel user) {
- 		LOGGER.infov("removeUser: {0}", user);
- 		String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
- 		if (DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode)) {
+ 		LOGGER.debugv("removeUser: {0}", user);
+ 		if (isSyncDeleteMode()) {
  			Integer databaseId = getDatabaseId(user);
  			if (databaseId != null) {
  				DatabaseUser databaseUser = userRepository.getUserById(databaseId);
@@ -158,35 +155,31 @@ public class DBFederationProvider
  	
  	@Override
  	public int getUsersCount(RealmModel realm) {
- 		LOGGER.infov("getUsersCount:");
- 		return userRepository.countUsers();
+ 		LOGGER.debugv("getUsersCount:");
+ 		return 0;
  	}
  	
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, String search, Integer firstResult, Integer maxResults) {
-    	LOGGER.infov("searchForUserStream: {0}", search);
-		return userRepository.searchUsers(search, firstResult, maxResults).stream().map((DatabaseUser user) -> {
-			return (UserModel) getUserByUsername(realm, user.getUsername());
-		});
+    	LOGGER.debugv("searchForUserStream: {0}", search);
+    	return Stream.empty();
 	}
     
 	@Override
 	public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params, Integer firstResult, Integer maxResults) {
-		LOGGER.infov("searchForUserStream: {0}", params);
-		return userRepository.searchUsers("", firstResult, maxResults).stream().map((DatabaseUser user) -> {
-			return (UserModel) getUserByUsername(realm, user.getUsername());
-		});
+		LOGGER.debugv("searchForUserStream: {0}", params);
+		return Stream.empty();
 	}
 
 	@Override
 	public Stream<UserModel> getGroupMembersStream(RealmModel realm, GroupModel group, Integer firstResult, Integer maxResults) {
-		LOGGER.infov("getGroupMembersStream: {0}", group);
+		LOGGER.debugv("getGroupMembersStream: {0}", group);
 		return Stream.empty();
 	}
 
 	@Override
 	public Stream<UserModel> searchForUserByUserAttributeStream(RealmModel realm, String attrName, String attrValue) {
-		LOGGER.infov("searchForUserByUserAttributeStream: {0}", attrName);
+		LOGGER.debugv("searchForUserByUserAttributeStream: {0}", attrName);
 		return Stream.empty();
 	}
 	
@@ -194,7 +187,7 @@ public class DBFederationProvider
 	
 	@Override
 	public UserModel validate(RealmModel realm, UserModel user) {
-		LOGGER.infov("validate: {0}", user.getUsername());
+		LOGGER.debugv("validate: {0}", user.getUsername());
 		Integer databaseId = getDatabaseId(user);
 		
 		if (databaseId != null) {
@@ -203,8 +196,8 @@ public class DBFederationProvider
 				return null;
 			}
 			if (databaseUser.outOfSync(user)) {
-				LOGGER.infov("syncing local model: {0}", user.getUsername());
-				databaseUser.syncUserModel(user);
+				LOGGER.debugv("syncing local model: {0}", user.getUsername());
+				databaseUser.syncToUserModel(user);
 			}
 			
 			String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
@@ -227,7 +220,7 @@ public class DBFederationProvider
 
 	@Override
 	public boolean isConfiguredFor(RealmModel realm, UserModel user, String credentialType) {
-		LOGGER.infov("isConfiguredFor: {0}", user);
+		LOGGER.debugv("isConfiguredFor: {0}", user);
 		if (!credentialType.equals(PasswordCredentialModel.TYPE)) {
 			return false;
 		}
@@ -244,7 +237,7 @@ public class DBFederationProvider
 
 	@Override
 	public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
-		LOGGER.infov("isValid: {0}, {1}", user, input);
+		LOGGER.debugv("isValid: {0}, {1}", user, input);
 		if (!supportsCredentialType(input.getType()) || !(input instanceof UserCredentialModel)) {
 			return false;
 		}
@@ -266,43 +259,53 @@ public class DBFederationProvider
 	
 	@Override
 	public boolean updateCredential(RealmModel realm, UserModel user, CredentialInput input) {
-		LOGGER.infov("updateCredential: {0}", user.getUsername());
-		if (!(input instanceof UserCredentialModel)) {
-			return false;
-		}
-        if (!input.getType().equals(PasswordCredentialModel.TYPE)) {
-        	return false;
-        }
-        Integer databaseId = getDatabaseId(user);
-		if (databaseId == null) {
-			return false;
-		}
-        UserCredentialModel credential = (UserCredentialModel) input;
-        // String salt = model.get(DBFederationConstants.CONFIG_SALT);
-        PasswordHashFunction hash = PasswordHashFunction.getById(model.get(DBFederationConstants.CONFIG_PASSWORD_HASH_FUNCTION));
-		String hashedPassword = hash.digest(credential.getValue(), model);
-        DatabaseUser databaseUser = userRepository.getUserById(databaseId);
-        if (databaseUser == null) {
-        	return false;
-        }
-        return userRepository.updatePassword(databaseUser.getId(), hashedPassword);
+		LOGGER.debugv("updateCredential: {0}", user.getUsername());
+		
+ 		if (isSyncWriteMode()) {
+ 			if (!(input instanceof UserCredentialModel)) {
+ 				return false;
+ 			}
+ 	        if (!input.getType().equals(PasswordCredentialModel.TYPE)) {
+ 	        	return false;
+ 	        }
+ 	        Integer databaseId = getDatabaseId(user);
+ 			if (databaseId == null) {
+ 				return false;
+ 			}
+ 	        UserCredentialModel credential = (UserCredentialModel) input;
+ 	        // String salt = model.get(DBFederationConstants.CONFIG_SALT);
+ 	        PasswordHashFunction hash = PasswordHashFunction.getById(model.get(DBFederationConstants.CONFIG_PASSWORD_HASH_FUNCTION));
+ 			String hashedPassword = hash.digest(credential.getValue(), model);
+ 	        DatabaseUser databaseUser = userRepository.getUserById(databaseId);
+ 	        if (databaseUser == null) {
+ 	        	return false;
+ 	        }
+ 	        return userRepository.updatePassword(databaseUser.getId(), hashedPassword);
+ 		} else {
+ 			throw new IllegalArgumentException("Cannot change password in READONLY mode");
+ 		}
 	}
 
 	@Override
 	public void disableCredentialType(RealmModel realm, UserModel user, String credentialType) {
-		LOGGER.infov("disableCredential: {0}", user.getUsername());
-		if (!credentialType.equals(PasswordCredentialModel.TYPE)) {
-			return;
-		}
-		Integer databaseId = getDatabaseId(user);
-		if (databaseId == null) {
-			return;
-		}
-        DatabaseUser databaseUser = userRepository.getUserById(databaseId);
-        if (databaseUser == null) {
-        	return;
-        }
-        userRepository.updatePassword(databaseUser.getId(), "");
+		LOGGER.debugv("disableCredential: {0}", user.getUsername());
+		
+ 		if (isSyncWriteMode()) {
+			if (!credentialType.equals(PasswordCredentialModel.TYPE)) {
+				return;
+			}
+			Integer databaseId = getDatabaseId(user);
+			if (databaseId == null) {
+				return;
+			}
+	        DatabaseUser databaseUser = userRepository.getUserById(databaseId);
+	        if (databaseUser == null) {
+	        	return;
+	        }
+	        userRepository.updatePassword(databaseUser.getId(), "");
+ 		} else {
+ 			throw new IllegalArgumentException("Cannot reset password in READONLY mode");
+ 		}
 	}
 
 	@Override
@@ -313,7 +316,7 @@ public class DBFederationProvider
 	// Private Methods
 	
     protected UserModel createAdapter(RealmModel realm, DatabaseUser databaseUser) {
-    	LOGGER.infov("createAdapter: {0}", databaseUser);
+    	LOGGER.debugv("createAdapter: {0}", databaseUser);
     	UserModel local = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, databaseUser.getUsername());
     	if (local == null) {
     		local = UserStoragePrivateUtil.userLocalStorage(session).addUser(realm, databaseUser.getUsername());
@@ -329,14 +332,14 @@ public class DBFederationProvider
     }
     
     protected WritableUserDelegate createWritableDelegate(UserModel local, DatabaseUser databaseUser) {
-    	LOGGER.infov("createWritableDelegate: {0} {1}", local, databaseUser);
+    	LOGGER.debugv("createWritableDelegate: {0} {1}", local, databaseUser);
     	WritableUserDelegate delegate = new WritableUserDelegate(local, databaseUser);
     	delegates.add(delegate);
     	return delegate;
     }
     
     protected ReadOnlyUserDelegate createReadOnlyDelegate(UserModel local, DatabaseUser databaseUser) {
-    	LOGGER.infov("createReadOnlyDelegate: {0} {1}", local, databaseUser);
+    	LOGGER.debugv("createReadOnlyDelegate: {0} {1}", local, databaseUser);
     	ReadOnlyUserDelegate delegate = new ReadOnlyUserDelegate(local);
     	return delegate;
     }
@@ -350,4 +353,13 @@ public class DBFederationProvider
     	}
     }
 
+    protected boolean isSyncWriteMode() {
+    	String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+    	return DBFederationConstants.SYNC_READWRITE.equals(syncMode) || DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode);
+    }
+    
+    protected boolean isSyncDeleteMode() {
+    	String syncMode = model.get(DBFederationConstants.CONFIG_SYNC_MODE);
+ 		return DBFederationConstants.SYNC_READWRITEDELETE.equals(syncMode);
+    }
 }

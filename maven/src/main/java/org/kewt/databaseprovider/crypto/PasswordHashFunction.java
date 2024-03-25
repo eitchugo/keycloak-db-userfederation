@@ -20,7 +20,6 @@ public enum PasswordHashFunction {
 	SHA1("DIGEST_SHA1"),
 	SHA256("DIGEST_SHA256"),
 	SHA512("DIGEST_SHA512"),
-	DOUBLE_SHA512("DOUBLE_DIGEST_SHA512"),
 	PBKDF2_SHA1("PBKDF2_SHA1"),
 	PBKDF2_SHA256("PBKDF2_SHA256"),
 	PBKDF2_SHA512("PBKDF2_SHA512"),
@@ -47,31 +46,30 @@ public enum PasswordHashFunction {
 	}
 	
 	public PasswordEncoder getPasswordEncoder(ComponentModel model) {
-		String salt = model.get(DBFederationConstants.CONFIG_DIGEST_SALT);
-		Integer strength = Integer.valueOf(model.get(DBFederationConstants.CONFIG_BCRYPT_STRENGTH, 10));
-		Integer saltLength = Integer.valueOf(model.get(DBFederationConstants.CONFIG_PBKDF2_SALT_LENGTH, 16));
-		Integer iterations = Integer.valueOf(model.get(DBFederationConstants.CONFIG_PBKDF2_ITERATIONS, 300000));
+		String digestSalt = getString(model, DBFederationConstants.CONFIG_DIGEST_SALT, "");
+		Integer digestIterations = getInteger(model, DBFederationConstants.CONFIG_DIGEST_ITERATIONS, 1);
+		Integer bcryptStrength = getInteger(model, DBFederationConstants.CONFIG_BCRYPT_STRENGTH, 10);
+		Integer pbkdf2SaltLength = getInteger(model, DBFederationConstants.CONFIG_PBKDF2_SALT_LENGTH, 16);
+		Integer pbkdf2Iterations = getInteger(model, DBFederationConstants.CONFIG_PBKDF2_ITERATIONS, 300000);
 		switch (this) {
 			case PBKDF2_SHA1:
-				return new Pbkdf2PasswordEncoder("pepper", saltLength, iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1);
+				return new Pbkdf2PasswordEncoder("pepper", pbkdf2SaltLength, pbkdf2Iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1);
 			case PBKDF2_SHA256:
-				return new Pbkdf2PasswordEncoder("pepper", saltLength, iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);
+				return new Pbkdf2PasswordEncoder("pepper", pbkdf2SaltLength, pbkdf2Iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);
 			case PBKDF2_SHA512:
-				return new Pbkdf2PasswordEncoder("pepper", saltLength, iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512);
+				return new Pbkdf2PasswordEncoder("pepper", pbkdf2SaltLength, pbkdf2Iterations, SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512);
 			case BCRYPT:
-				return new BCryptPasswordEncoder(strength);
+				return new BCryptPasswordEncoder(bcryptStrength);
 			case PLAIN_TEXT:
 				return new PlainTextPasswordEncoder();
 			case MD5:
-				return new DigestPasswordEncoder("MD5", salt);
+				return new DigestPasswordEncoder("MD5", digestSalt, digestIterations);
 			case SHA1:
-				return new DigestPasswordEncoder("SHA-1", salt);
+				return new DigestPasswordEncoder("SHA-1", digestSalt, digestIterations);
 			case SHA256:
-				return new DigestPasswordEncoder("SHA-256", salt);
+				return new DigestPasswordEncoder("SHA-256", digestSalt, digestIterations);
 			case SHA512:
-				return new DigestPasswordEncoder("SHA-512", salt);
-			case DOUBLE_SHA512:
-				return new DigestPasswordEncoder("SHA-512", salt, true);
+				return new DigestPasswordEncoder("SHA-512", digestSalt, digestIterations);
 			default:
 				throw new IllegalArgumentException();
 		}
@@ -93,6 +91,16 @@ public enum PasswordHashFunction {
 	
 	public static Collection<String> ids() {
 		return getMappingById().keySet();
+	}
+	
+	// Private Methods
+	
+	private String getString(ComponentModel model, String key, String defaultValue) {
+		return model.get(key, defaultValue);
+	}
+	
+	private Integer getInteger(ComponentModel model, String key, Integer defaultValue) {
+		return Integer.valueOf(model.get(key, defaultValue.toString()));
 	}
 
 }

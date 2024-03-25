@@ -79,7 +79,7 @@ public class DatabaseUser {
 			!(Objects.equals(lastName, user.getLastName()));
 	}
 	
-	public void syncUserModel(UserModel user) {
+	public void syncToUserModel(UserModel user) {
 		user.setUsername(this.username);
 		user.setEmail(this.email);
 		user.setFirstName(this.firstName);

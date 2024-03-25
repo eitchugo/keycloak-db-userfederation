@@ -125,6 +125,13 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 				.type(ProviderConfigProperty.PASSWORD)
 				.add()
 			.property()
+				.name(DBFederationConstants.CONFIG_DIGEST_ITERATIONS)
+				.label("user-federation-provider.db.digestIterations")
+				.helpText("user-federation-provider.db.digestIterationsHelp")
+				.type(ProviderConfigProperty.STRING_TYPE)
+				.defaultValue(1)
+				.add()
+			.property()
 				.name(DBFederationConstants.CONFIG_BCRYPT_STRENGTH)
 				.label("user-federation-provider.db.bcryptStrength")
 				.helpText("user-federation-provider.db.bcryptStrengthHelp")
@@ -165,12 +172,12 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public void init(Scope config) {
-		LOGGER.infov("Initializing DBFederationProviderFactory");
+		LOGGER.debugv("Initializing DBFederationProviderFactory");
 	}
 	
 	@Override
 	public DBFederationProvider create(KeycloakSession session, ComponentModel model) {
-		LOGGER.infov("Creating DBFederationProvider");
+		LOGGER.debugv("Creating DBFederationProvider");
 		DatabaseConnection connection = createConnection(model, true);
 		return new DBFederationProvider(session, model, connection);
 	}
@@ -187,23 +194,24 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 	
 	@Override
 	public void validateConfiguration(KeycloakSession session, RealmModel realm, ComponentModel model) throws ComponentValidationException {
-		LOGGER.infov("Validating database configuration");
+		LOGGER.debugv("Validating database configuration");
 		
 		try (DatabaseConnection database = createConnection(model, true)) {
 			Integer value = database.querySingle("SELECT 1", null, (ResultSet rs) -> {
 				return 1;
 			});
 			if (value == 1) {
-				LOGGER.infov("Database configuration successful");
+				LOGGER.debugv("Database configuration successful");
 			}
 		} catch (DatabaseException e) {
+			LOGGER.error(e);
 			throw new ComponentValidationException("Unable to connect to database", e);
 		}
 	}
 	
 	@Override
 	public void close() {
-		LOGGER.infov("Closing DatabaseUserStorageProviderFactory");
+		LOGGER.debugv("Closing DatabaseUserStorageProviderFactory");
 	}
 	
 	// ImportSynchronization
@@ -233,7 +241,7 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 			        UserModel local = userProvider.searchForUserByUserAttributeStream(realm, DBFederationConstants.ATTRIBUTE_DATABASE_ID, user.getId().toString()).findFirst().orElse(null);
 		        	if (local != null) {
 		        		if (user.outOfSync(local)) {
-		        			user.syncUserModel(local);
+		        			user.syncToUserModel(local);
 		        			result.increaseUpdated();
 		        		}
 		        	} else {
@@ -249,21 +257,21 @@ public class DBFederationProviderFactory implements UserStorageProviderFactory<D
 		        	}
 		    	});
         	} catch (Exception e) {
-        		LOGGER.debug(new RuntimeException("Failed syncing user " + user.getUsername(), e));
+        		LOGGER.error(new RuntimeException("Failed syncing user " + user.getUsername(), e));
         		result.increaseFailed();
         	}
         }
 		
 		Instant end = Instant.now();
 		double timeEllapsed = Duration.between(start, end).toMillis() / 1000.0;
-		LOGGER.infov("Full Sync ended in " + timeEllapsed + " seconds");
+		LOGGER.infov("Full Sync ended in " + timeEllapsed + " seconds (" + result.getAdded() + " added, " + result.getUpdated() + " updated, " + result.getFailed() + " failed)");
 		
 		return result;
 	}
 	
 	@Override
 	public SynchronizationResult syncSince(Date lastSync, KeycloakSessionFactory sessionFactory, String realmId, UserStorageProviderModel model) {
-		LOGGER.infov("syncSince()");
+		LOGGER.debugv("syncSince()");
 		return SynchronizationResult.empty();
 	}
 	

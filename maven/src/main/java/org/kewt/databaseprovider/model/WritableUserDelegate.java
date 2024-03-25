@@ -21,7 +21,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setUsername(String username) {
-		LOGGER.infov("  setUsername: {0}", username);
+		LOGGER.debugv("  setUsername: {0}", username);
 		super.setUsername(username);
 		databaseUser.setUsername(username);
 		dirty = true;
@@ -29,7 +29,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setEmail(String email) {
-		LOGGER.infov("  setEmail: {0}", email);
+		LOGGER.debugv("  setEmail: {0}", email);
 		super.setEmail(email);
 		databaseUser.setEmail(email);
 		dirty = true;
@@ -37,7 +37,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setFirstName(String firstName) {
-		LOGGER.infov("  setFirstName: {0}", firstName);
+		LOGGER.debugv("  setFirstName: {0}", firstName);
 		super.setFirstName(firstName);
 		databaseUser.setFirstName(firstName);
 		dirty = true;
@@ -45,7 +45,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setLastName(String lastName) {
-		LOGGER.infov("  setLastName: {0}", lastName);
+		LOGGER.debugv("  setLastName: {0}", lastName);
 		super.setLastName(lastName);
 		databaseUser.setLastName(lastName);
 		dirty = true;
@@ -53,7 +53,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setAttribute(String name, List<String> values) {
-		LOGGER.infov("  setAttribute: {0}, {1}", name, values);
+		LOGGER.debugv("  setAttribute: {0}, {1}", name, values);
 		switch (name) {
 			case "email":
 				setEmail(values.get(0));
@@ -72,7 +72,7 @@ public class WritableUserDelegate extends UserModelDelegate {
 	
 	@Override
 	public void setSingleAttribute(String name, String value) {
-		LOGGER.infov("  setSingleAttribute: {0}, {1}", name, value);
+		LOGGER.debugv("  setSingleAttribute: {0}, {1}", name, value);
 		switch (name) {
 			case "email":
 				setEmail(value);
